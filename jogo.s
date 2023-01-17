@@ -6,6 +6,9 @@ PONTUACAO: 		.word 0
 VIDAS:			.half 3
 
 OLD_SEC_COUNTER: .word 1
+ULTIMO_MOVIMENTO: .word 0
+PROXIMO_MOVIMENTO: .word 0
+
 
 ########## .data FANTASMAS #############
 
@@ -29,6 +32,10 @@ MATRIZ_POS_AMARELO: 	.word 0
 call MAIN_MENU
 
 SETUP:		
+		la t0, ULTIMO_MOVIMENTO
+		la t1, CHAR_ESQ
+		sw t1, (t0)
+
 		# MATRIZ PACMAN
 		la s2, MATRIZ_1
 		la t1, MATRIZ_POS
@@ -110,19 +117,21 @@ GAME_LOOP:
 		j GAME_LOOP			# continua o loop
 
 INPUT_TECLADO:	
+		
 		li a7, 30				# syscall de tempo
 		ecall
-		
+
 		la s2, OLD_SEC_COUNTER	# s2 = endereco de OLD_SEC_COUNTER
 		lw s3, (s2)				# s3 = conteudo em s2
 		
 		beq a0, s3, FIM			# se o tempo em a0 ja tiver sido utilizado no loop -> FIM
 		sw a0, (s2)				# se nao -> armazena o tempo atual em OLD_SEC_COUNTER
 		
-		slli s1, a0, 25			
-		srli s1, s1, 25
+		slli s1, a0, 26	
+		srli s1, s1, 26
 	
-		beqz s1, CHAR_ESQ		# se o tempo atual formatado for = 0 -> anda
+		
+		beqz s1, JUMP_ULTIMO_MOVIMENTO		# se o tempo atual formatado for = 0 -> JUMP_ULTIMO_MOVIMENTO
 		
 		li t1,0xFF200000		# carrega o endereco de controle do KDMMIO
 		lw t0,0(t1)				# Le bit de Controle Teclado
@@ -131,30 +140,69 @@ INPUT_TECLADO:
   		lw t2,4(t1)  			# le o valor da tecla
 		
 		li t0,'w'
-		beq t2,t0,CHAR_CIMA		# se tecla pressionada for 'w', chama CHAR_CIMA
+		la a3, CHAR_CIMA
+		li a2, -28
+		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 'w', chama CHAR_CIMA
 		
 		li t0,'a'
-		beq t2,t0,CHAR_ESQ		# se tecla pressionada for 'a', chama CHAR_CIMA
+		la a3, CHAR_ESQ
+		li a2, -1
+		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 'a', chama CHAR_CIMA
 		
 		li t0,'s'
-		beq t2,t0,CHAR_BAIXO		# se tecla pressionada for 's', chama CHAR_CIMA
+		la a3, CHAR_BAIXO
+		li a2, 28
+		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 's', chama CHAR_CIMA
 		
 		li t0,'d'
-		beq t2,t0,CHAR_DIR		# se tecla pressionada for 'd', chama CHAR_CIMA
+		la a3, CHAR_DIR
+		li a2, 1
+		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 'd', chama CHAR_CIMA
 		
+STORE_ULTIMO_MOVIMENTO:
+		jal s8, PRE_CHECK_COLISAO	# se elemento for parede -> nao armazena o input
+
+		la t0, ULTIMO_MOVIMENTO		# t0 = endereco de ULTIMO_MOVIMENTO
+		sw a3, (t0)					# armazena o endereco do ultimo movimento (a3) em ULTIMO_MOVIMENTO
+		
+		la t1, PROXIMO_MOVIMENTO	# t0 = endereco de PROXIMO_MOVIMENTO
+		sw zero, (t1)				# zera o conteudo de PROXIMO_MOVIMENTO
+		ret
+
+STORE_PROXIMO_MOVIMENTO:
+		la t0, PROXIMO_MOVIMENTO	# t0 = endereco de PROXIMO_MOVIMENTO
+		sw a3, (t0)					# armazena o proximo movimento viavel (a3) em PROXIMO_MOVIMENTO
+		ret
+
+JUMP_ULTIMO_MOVIMENTO:
+		#la t0, PROXIMO_MOVIMENTO
+		#lw s1, (t0)
+		#bnez s1, JUMP_PROXIMO_MOVIMENTO
+		
+		#jal s7, PRE_CHECK_COLISAO2
+
+		la t0, ULTIMO_MOVIMENTO		# t0 = endereco de ULTIMO_MOVIMENTO
+		lw s1, (t0)					# t1 = word em t0 (endereco do ultimo movimento)
+		jr s1						# jump para o endereco do ultimo movimento
+		
+JUMP_PROXIMO_MOVIMENTO:
+		la t0, PROXIMO_MOVIMENTO	# t0 = endereco de ULTIMO_MOVIMENTO
+		lw s1, (t0)					# t1 = word em t0 (endereco do ultimo movimento)
+		jr s1
+
 FIM:
 		ret				# retorna
 
 CHAR_ESQ:
-		
-		li a7, 1
-		li a0, 9
-		ecall
-
 		li a2, -1					# a2 = direcao do movimento na matriz
+		la a3, CHAR_ESQ
 		jal s8, COLISAO				# pula para colisao e coloca em s8 o endereco de retorno
 		
 		la s8, CHAR_ESQ
+		
+		la t0, ULTIMO_MOVIMENTO
+		sw s8, (t0)					# guarda CHAR_ESQ em ULTIMO_MOVIMENTO
+		
 		la t0,BITMAP_POS			# carrega em t0 o endereco de BITMAP_POS
 		la t1,OLD_BITMAP_POS		# carrega em t1 o endereco de OLD_BITMAP_POS
 		lw t2,0(t0)
@@ -167,9 +215,14 @@ CHAR_ESQ:
 
 CHAR_DIR:	
 		li a2, 1					# a2 = direcao do movimento na matriz
+		la a3, CHAR_DIR
 		jal s8, COLISAO				# pula para colisao e coloca em s8 o endereco de retorno
 
 		la s8, CHAR_DIR
+		
+		la t0, ULTIMO_MOVIMENTO
+		sw s8, (t0)					# guarda CHAR_DIR em ULTIMO_MOVIMENTO
+		
 		la t0,BITMAP_POS			# carrega em t0 o endereco de BITMAP_POS
 		la t1,OLD_BITMAP_POS		# carrega em t1 o endereco de OLD_BITMAP_POS
 		lw t2,0(t0)
@@ -183,9 +236,14 @@ CHAR_DIR:
 
 CHAR_CIMA:
 		li a2, -28					# a2 = direcao do movimento na matriz
+		la a3, CHAR_CIMA
 		jal s8, COLISAO				# pula para colisao e coloca em s8 o endereco de retorno
 		
 		la s8, CHAR_CIMA
+		
+		la t0, ULTIMO_MOVIMENTO
+		sw s8, (t0)					# guarda CHAR_CIMA em ULTIMO_MOVIMENTO
+		
 		la t0,BITMAP_POS			# carrega em t0 o endereco de BITMAP_POS
 		la t1,OLD_BITMAP_POS		# carrega em t1 o endereco de OLD_BITMAP_POS
 		lw t2,0(t0)
@@ -198,10 +256,15 @@ CHAR_CIMA:
 		ret
 
 CHAR_BAIXO:		
-		li a2, 28					# a2 = direcao do movimento na matriz
+		li a2, 28
+		la a3, CHAR_BAIXO					# a2 = direcao do movimento na matriz
 		jal s8, COLISAO				# pula para colisao e coloca em s8 o endereco de retorno
 		
 		la s8, CHAR_BAIXO
+		
+		la t0, ULTIMO_MOVIMENTO
+		sw s8, (t0)					# guarda CHAR_BAIXO em ULTIMO_MOVIMENTO
+		
 		la t0,BITMAP_POS			# carrega em t0 o endereco de BITMAP_POS
 		la t1,OLD_BITMAP_POS		# carrega em t1 o endereco de OLD_BITMAP_POS
 		lw t2,0(t0)
@@ -215,6 +278,7 @@ CHAR_BAIXO:
 		
 #################COLISAO#########################
 # a2 = direcao do movimento (1,-1,28,-28)
+# a3 = endereco do ultimo movimento (CHAR_BAIXO / CHAR_CIMA / CHAR_ESQ / CHAR_DIR)
 COLISAO:
 		la s1, MATRIZ_POS		# s1 = endereco de MATRIZ_POS
 		lw s4, 0(s1)			# s4 = endereco do pacman
@@ -254,6 +318,20 @@ COLISAO:
 		# come a cereja
 		
 		jr s8					# salta de volta para s8 (registrador de retorno nas funcoes de movimentacao)
+		
+PRE_CHECK_COLISAO:
+		la s1, MATRIZ_POS		# s1 = endereco de MATRIZ_POS
+		lw s4, 0(s1)			# s4 = endereco do pacman
+		add s2, s4, a2			# s2 = endereco na direcao a2 do pacman
+		lb s3, 0(s2)			# s3 = numero do destino na matriz
+		
+		li t0, 1		
+		beq s3, t0, STORE_PROXIMO_MOVIMENTO			# se o destino na matriz (s3) for uma parede (1) -> FIM
+		
+		li t0, 8		
+		beq s3, t0, STORE_PROXIMO_MOVIMENTO			# se o destino na matriz (s3) for o portao da base fantasma (8) -> FIM
+		
+		jr s8
 		
 PORTAL:
 		# multiplicar distancia a ser andada por a2 pra definir se é pra frente ou pra tras
