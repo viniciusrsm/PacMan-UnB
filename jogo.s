@@ -1,14 +1,24 @@
 .data
-BITMAP_POS:		.half 148,177				# x, y
-OLD_BITMAP_POS:	.half 148,177				# x, y
-MATRIZ_POS: 	.word 0
-PONTUACAO: 		.word 0
-VIDAS:			.half 3
+BITMAP_POS:			.half 148,177				# x, y
+OLD_BITMAP_POS:		.half 148,177				# x, y
+MATRIZ_POS: 		.word 0
+SPRITE_ATUAL:		.word 0
+SPRITE_ATUAL_2: 	.word 0
+SPRITE_ATUAL_3:		.word 0
+
+PONTUACAO: 			.word 0
+PONTUACAO_MAXIMA: 	.word 0
+VIDAS:				.byte 3
+
+PONTOS_COMIDOS: 	.half 0
 
 OLD_SEC_COUNTER: .word 1
 ULTIMO_MOVIMENTO: .word 0
 PROXIMO_MOVIMENTO: .word 0
+INTEIRO_PROXIMO_MOVIMENTO: .byte 0
 
+STR_PONTUACAO: .string "Score"
+STR_MAX: .string "Max"
 
 ########## .data FANTASMAS #############
 
@@ -28,16 +38,46 @@ BITMAP_POS_AMARELO:		.half 164, 105				# x, y
 OLD_BITMAP_POS_AMARELO:	.half 164, 105				# x, y
 MATRIZ_POS_AMARELO: 	.word 0
 
+.include "MACROSv21.s"
+
 .text
 call MAIN_MENU
 
 SETUP:		
-		la t0, ULTIMO_MOVIMENTO
-		la t1, CHAR_ESQ
+		# RESETA OS DADOS PARA PROXIMA FASE
+		la t0, PONTOS_COMIDOS
+		sh zero, (t0)
+
+		la s1, BITMAP_POS
+		la s2, OLD_BITMAP_POS
+		li t1, 148
+		li t2, 177
+		sh t1, (s1)
+		sh t2, 2 (s1)
+		sh t1, (s2)
+		sh t2, 2 (s2)
+		
+		la t0, MATRIZ_POS
+		sw zero, (t0)
+		
+		la t0, ULTIMO_MOVIMENTO	
+		la t1, CHAR_ESQ				# comeca o jogo com pacman andando para a esquerda
+		sw t1, (t0)
+		
+		la t0, SPRITE_ATUAL
+		la t1, pacman_esq			# salva a sprite esquerda como a sprite atual
+		sw t1, (t0)
+		
+		la t0, SPRITE_ATUAL_2
+		la t1, pacman_esq_2			# salva a sprite esquerda como a sprite atual
+		sw t1, (t0)
+		
+		la t0, SPRITE_ATUAL_3
+		la t1, pacman_fechado			# salva a sprite esquerda como a sprite atual
 		sw t1, (t0)
 
 		# MATRIZ PACMAN
-		la s2, MATRIZ_1
+		la s2, MATRIZ_1		# mudar em cada mapa
 		la t1, MATRIZ_POS
 		addi t2, s2, 657		# carrega posicao inicial do pacman em t0
 		sw t2, (t1)				# guarda t0 em MATRIZ_POS
@@ -73,6 +113,11 @@ SETUP:
 		# esse setup serve pra desenhar o "mapa" nos dois frames antes do "jogo" comecar
 
 GAME_LOOP:	
+		li t0, 224
+		la t1, PONTOS_COMIDOS		
+		lh t1, (t1)
+		beq t0, t1, SETUP			# se todas as frutas foram comidas (224 frutas) -> volta para setup e inicia proxima fase
+		
 		call INPUT_TECLADO			# chama o procedimento de entrada do teclado
 		
 		xori s0,s0,1			# inverte o valor frame atual (somente o registrador)
@@ -93,8 +138,10 @@ GAME_LOOP:
 		la a0, amarelo_direita		# carrega o endereco do sprite 'amarelo_direita' em a0
 		jal s8, CHAR_PRINT			# chama CHAR_PRINT
 		
+		
 		la a2, BITMAP_POS			# a2 = endereco bitmap do pacman
-		la a0, pacman				# carrega o endereco do sprite 'pacman' em a0
+		la t1, SPRITE_ATUAL		
+		lw a0, (t1)	
 		jal s8, CHAR_PRINT
 		
 		
@@ -113,11 +160,54 @@ GAME_LOOP:
 		mv a3,s0			# carrega o frame atual (que esta na tela em a3)
 		xori a3,a3,1			# inverte a3 (0 vira 1, 1 vira 0)
 		call PRINT			# imprime
+		
+		la t0,OLD_BITMAP_POS_AZUL		# carrega em t0 o endereco de OLD_BITMAP_POS
+		
+		la a0,dot_background			# carrega o endereco do sprite 'black' em a0
+		#li a0, 0x00000000
+		lh a1,0(t0)			# carrega a posicao x antiga do personagem em a1
+		lh a2,2(t0)			# carrega a posicao y antiga do personagem em a2
+		
+		mv a3,s0			# carrega o frame atual (que esta na tela em a3)
+		xori a3,a3,1			# inverte a3 (0 vira 1, 1 vira 0)
+		call PRINT			# imprime
+		
+		
+		############ MENU IN-GAME ###############
+		la a0, STR_PONTUACAO	# display da string score
+		li a1, 5 				# posicao x
+		li a2, 30 				# posicao y
+		li a3, 0x000000ff 		# Texto branco fundo preto
+		mv a4, s0 				# frame s0 (alterna)
+		li a7, 104 				# ecall do print int 
+		ecall
+		
+		la t1, PONTUACAO
+		lw a0, (t1)			# display da pontuacao na tela
+		li a1, 7 			# posicao x
+		li a2, 45 			# posicao y
+		li a7, 101 			# ecall do print int 
+		ecall
+		
+		la a0, STR_MAX	# display da string score
+		li a1, 280 				# posicao x
+		li a2, 20 				# posicao y
+		li a3, 0x000000ff 		# Texto branco fundo preto
+		mv a4, s0 				# frame s0 (alterna)
+		li a7, 104 				# ecall do print int 
+		ecall
+		
+		la a0, STR_PONTUACAO	# display da string score
+		li a1, 275 				# posicao x
+		li a2, 30 				# posicao y
+		li a3, 0x000000ff 		# Texto branco fundo preto
+		mv a4, s0 				# frame s0 (alterna)
+		li a7, 104 				# ecall do print int 
+		ecall
 	
 		j GAME_LOOP			# continua o loop
 
-INPUT_TECLADO:	
-		
+INPUT_TECLADO:
 		li a7, 30				# syscall de tempo
 		ecall
 
@@ -129,9 +219,8 @@ INPUT_TECLADO:
 		
 		slli s1, a0, 26	
 		srli s1, s1, 26
-	
 		
-		beqz s1, JUMP_ULTIMO_MOVIMENTO		# se o tempo atual formatado for = 0 -> JUMP_ULTIMO_MOVIMENTO
+		beqz s1, MOVIMENTACAO		# se o tempo atual formatado for = 0 -> JUMP_ULTIMO_MOVIMENTO
 		
 		li t1,0xFF200000		# carrega o endereco de controle do KDMMIO
 		lw t0,0(t1)				# Le bit de Controle Teclado
@@ -140,55 +229,104 @@ INPUT_TECLADO:
   		lw t2,4(t1)  			# le o valor da tecla
 		
 		li t0,'w'
+		la a4, pacman_cima
+		la a5, pacman_cima_2
 		la a3, CHAR_CIMA
 		li a2, -28
 		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 'w', chama CHAR_CIMA
 		
 		li t0,'a'
+		la a4, pacman_esq
+		la a5, pacman_esq_2
 		la a3, CHAR_ESQ
 		li a2, -1
 		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 'a', chama CHAR_CIMA
 		
 		li t0,'s'
+		la a4, pacman_baixo
+		la a5, pacman_baixo_2
 		la a3, CHAR_BAIXO
 		li a2, 28
 		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 's', chama CHAR_CIMA
 		
 		li t0,'d'
+		la a4, pacman_dir
+		la a5, pacman_dir_2
 		la a3, CHAR_DIR
 		li a2, 1
 		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 'd', chama CHAR_CIMA
+
+MOVIMENTACAO:
+		jal s8 TROCA_SPRITE_ATUAL	# come come
+		
+		##### movimentacao fantasma #####
+		#jal s8, MOVIMENTACAO_AZUL
+		#jal s8, MOVIMENTACAO_VERMELHO
+		#jal s8, MOVIMENTACAO_ROSA
+		#jal s8, MOVIMENTACAO_AMARELO
+		#################################
+
+		la t0, PROXIMO_MOVIMENTO	# t0 = endereco de PROXIMO_MOVIMENTO
+		lw s1, (t0)					# t1 = word em t0 (endereco do proximo movimento)
+		
+		beqz s1, JUMP_ULTIMO_MOVIMENTO	# se s1 for = 0 
+		
+		jal s8, PRE_CHECK_MOVIMENTO		# checa o proximo movimento
+		
+		la t0, PROXIMO_MOVIMENTO	# t0 = endereco de PROXIMO_MOVIMENTO
+		lw s1, (t0)					# t1 = word em t0 (endereco do proximo movimento)
+		jr s1							# vai para o proximo movimento
+
+TROCA_SPRITE_ATUAL:
+		la s1, SPRITE_ATUAL
+		la s2, SPRITE_ATUAL_2
+		la s3, SPRITE_ATUAL_3
+		lw t1, (s1)
+		lw t2, (s2)
+		lw t3, (s3)
+		
+		sw t1, (s2)
+		sw t2, (s3)
+		sw t3, (s1)
+		
+		jr s8
 		
 STORE_ULTIMO_MOVIMENTO:
-		jal s8, PRE_CHECK_COLISAO	# se elemento for parede -> nao armazena o input
+		
+		la t1, SPRITE_ATUAL
+		sw a4, (t1) 				# muda a sprite atual para a4
+		
+		la t1, SPRITE_ATUAL_2
+		sw a5, (t1)
+		
+		la t0, SPRITE_ATUAL_3
+		la t1, pacman_fechado			# salva a sprite esquerda como a sprite atual
+		sw t1, (t0)
+
+ 		jal s8, PRE_CHECK_COLISAO	# se elemento for parede -> nao armazena o input
 
 		la t0, ULTIMO_MOVIMENTO		# t0 = endereco de ULTIMO_MOVIMENTO
-		sw a3, (t0)					# armazena o endereco do ultimo movimento (a3) em ULTIMO_MOVIMENTO
+		sw a3, (t0)					# armazena o endereco do ultimo movimento (a3) em ULTIMO_MOVIMENTO	
 		
 		la t1, PROXIMO_MOVIMENTO	# t0 = endereco de PROXIMO_MOVIMENTO
 		sw zero, (t1)				# zera o conteudo de PROXIMO_MOVIMENTO
+		
 		ret
 
 STORE_PROXIMO_MOVIMENTO:
 		la t0, PROXIMO_MOVIMENTO	# t0 = endereco de PROXIMO_MOVIMENTO
 		sw a3, (t0)					# armazena o proximo movimento viavel (a3) em PROXIMO_MOVIMENTO
+		
+		la t0, INTEIRO_PROXIMO_MOVIMENTO 	# t0 = endereco de INTEIRO_PROXIMO_MOVIMENTO
+		sb a2, (t0)						 	# armazena a2 (-1, 1, -28, 28) em t0
+		
 		ret
 
 JUMP_ULTIMO_MOVIMENTO:
-		#la t0, PROXIMO_MOVIMENTO
-		#lw s1, (t0)
-		#bnez s1, JUMP_PROXIMO_MOVIMENTO
 		
-		#jal s7, PRE_CHECK_COLISAO2
-
 		la t0, ULTIMO_MOVIMENTO		# t0 = endereco de ULTIMO_MOVIMENTO
 		lw s1, (t0)					# t1 = word em t0 (endereco do ultimo movimento)
 		jr s1						# jump para o endereco do ultimo movimento
-		
-JUMP_PROXIMO_MOVIMENTO:
-		la t0, PROXIMO_MOVIMENTO	# t0 = endereco de ULTIMO_MOVIMENTO
-		lw s1, (t0)					# t1 = word em t0 (endereco do ultimo movimento)
-		jr s1
 
 FIM:
 		ret				# retorna
@@ -291,8 +429,13 @@ COLISAO:
 		li t0, 8		
 		beq s3, t0, FIM			# se o destino na matriz (s3) for o portao da base fantasma (8) -> FIM
 		
-		li t0, 3
-		beq s3, t0, COLISAO_FANTASMA		
+		#li t0, 3
+		#beq s3, t0, COLISAO_FANTASMA		
+		
+		li t0, 7
+		li t1, -7
+		beq s3, t1, PORTAL_ESQUERDA	# se o destino na matriz for um portal na esquerda
+		beq s3, t0, PORTAL_DIREITA	# se o destino na matriz for um portal na direita
 		
 		sw s2, 0(s1)			# se nao -> atualiza MATRIZ_POS com a nova posicao do pacman
 		
@@ -300,11 +443,6 @@ COLISAO:
 		li t2, 0					
 		sb t1, 0(s2)			# escreve 2 (numero do pacman) na nova posicao em MATRIZ
 		sb t2, 0(s4)			# escreve 0 (numero do espaco vazio) na antiga posicao em MATRIZ
-		
-		li t0, 7
-		li t1, -7
-		#beq s3, t1, PORTAL_ESQUERDA	# se o destino na matriz for um portal na esquerda
-		#beq s3, t2, PORTAL_DIREITA	# se o destino na matriz for um portal na direita
 		
 		li t0, 4
 		beq s3, t0, COMIDA		
@@ -332,13 +470,75 @@ PRE_CHECK_COLISAO:
 		beq s3, t0, STORE_PROXIMO_MOVIMENTO			# se o destino na matriz (s3) for o portao da base fantasma (8) -> FIM
 		
 		jr s8
+
+PRE_CHECK_MOVIMENTO:
 		
-PORTAL:
-		# multiplicar distancia a ser andada por a2 pra definir se é pra frente ou pra tras
+		la t0, INTEIRO_PROXIMO_MOVIMENTO
+		lb a2, (t0)							# a2 = -1 / 1 / -28 / 28
+
+		la s1, MATRIZ_POS		# s1 = endereco de MATRIZ_POS
+		lw s4, 0(s1)			# s4 = endereco do pacman
+		add s2, s4, a2			# s2 = endereco na direcao a2 do pacman
+		lb s3, 0(s2)			# s3 = numero do destino na matriz
 		
-		jr s8
+		li t0, 1
+		beq s3, t0, JUMP_ULTIMO_MOVIMENTO	# se for uma parede -> continua movimento normal
+											
+		li t0, 8		
+		beq s3, t0, JUMP_ULTIMO_MOVIMENTO 	# se for uma parede -> continua movimento normal
+		
+		jr s8					# j s8
+		
+PORTAL_ESQUERDA:
+		addi s2, s4, 24			# s1 = a4 (endereco do pacman na matriz) + 26
+		
+		sw s2, 0(s1)			# se nao -> atualiza MATRIZ_POS com a nova posicao do pacman
+		
+		li t1, 2
+		li t2, 0					
+		sb t1, 0(s2)			# escreve 2 (numero do pacman) na nova posicao em MATRIZ
+		sb t2, 0(s4)			# escreve 0 (numero do espaco vazio) na antiga posicao em MATRIZ
+		
+		la t0,BITMAP_POS			# carrega em t0 o endereco de BITMAP_POS
+		la t1,OLD_BITMAP_POS		# carrega em t1 o endereco de OLD_BITMAP_POS
+		lw t2,0(t0)
+		sw t2,0(t1)			# salva a posicao atual do personagem em OLD_BITMAP_POS
+		
+		la t0,BITMAP_POS
+		lh t1,0(t0)			# carrega o x atual do personagem
+		addi t1,t1,192			# incrementa 8 pixeis
+		sh t1,0(t0)			# salva
+		
+		ret
+
+PORTAL_DIREITA:
+		addi s2, s4, -24			# s1 = a4 (endereco do pacman na matriz) + 26
+		
+		sw s2, 0(s1)			# se nao -> atualiza MATRIZ_POS com a nova posicao do pacman
+		
+		li t1, 2
+		li t2, 0					
+		sb t1, 0(s2)			# escreve 2 (numero do pacman) na nova posicao em MATRIZ
+		sb t2, 0(s4)			# escreve 0 (numero do espaco vazio) na antiga posicao em MATRIZ
+		
+		la t0,BITMAP_POS			# carrega em t0 o endereco de BITMAP_POS
+		la t1,OLD_BITMAP_POS		# carrega em t1 o endereco de OLD_BITMAP_POS
+		lw t2,0(t0)
+		sw t2,0(t1)			# salva a posicao atual do personagem em OLD_BITMAP_POS
+		
+		la t0,BITMAP_POS
+		lh t1,0(t0)			# carrega o x atual do personagem
+		addi t1,t1,-192			# incrementa 8 pixeis
+		sh t1,0(t0)			# salva
+		
+		ret
 	
 COMIDA:
+		la s1, PONTOS_COMIDOS		
+		lh t1, (s1)
+		addi t1, t1, 1
+		sh t1, (s1)					# armazena + 1 em pontos comidos
+
 		la s1, PONTUACAO 			# s1 = endereco de PONTUACAO
 		lw t1, (s1)					# t1 = conteudo armazenado em PONTUACAO
 	
@@ -348,6 +548,11 @@ COMIDA:
 		jr s8
 	
 COMIDA_GRANDE:
+		la s1, PONTOS_COMIDOS		
+		lh t1, (s1)
+		addi t1, t1, 1
+		sh t1, (s1)					# armazena + 1 em pontos comidos
+
 		la s1, PONTUACAO 			# s1 = endereco de PONTUACAO
 		lw t1, (s1)					# t1 = conteudo armazenado em PONTUACAO
 	
@@ -356,43 +561,29 @@ COMIDA_GRANDE:
 	
 		jr s8
 		
-COLISAO_FANTASMA:
-		ret
-
 ############## FANTASMAS ########################
-	
 MOVIMENTACAO_AZUL:
-		#li a7, 30
-		#ecall
-	
-		#slli s0, a0, 20
-		#srli s0, s0, 20
+		li a7, 42			# syscall de rand int range 
+		li a0, 0			# index
+		li a1, 4			# limite do range
+		ecall
 		
-		#beqz s0, FIM
-		
-		#li a7, 42			# syscall de rand int range 
-		#li a0, 0			# index
-		#li a1, 4			# limite do range
-		#ecall
-		
-		#li t0, 0
-		#beq a0, t0, CHAR_ESQ_FANTASMA
-		#j CHAR_ESQ_FANTASMA
+		j CHAR_ESQ_FANTASMA
+		jr s8
 	
 MOVIMENTACAO_VERMELHO:
-	
+		jr s8
 MOVIMENTACAO_ROSA:
-	
+		jr s8
 MOVIMENTACAO_AMARELO:
-	
+		jr s8	
 
 ####
 
 CHAR_ESQ_FANTASMA:
-		#li a2, -1					# a2 = direcao do movimento na matriz
-		#jal s8, COLISAO				# pula para colisao e coloca em s8 o endereco de retorno
+		#jal s9, COLISAO_FANTASMA				# pula para colisao e coloca em s8 o endereco de retorno
 		
-		la s8, CHAR_ESQ_FANTASMA
+		la s1, CHAR_ESQ_FANTASMA
 		la t0,BITMAP_POS_AZUL			# carrega em t0 o endereco de BITMAP_POS
 		la t1,OLD_BITMAP_POS_AZUL		# carrega em t1 o endereco de OLD_BITMAP_POS
 		lw t2,0(t0)
@@ -401,7 +592,56 @@ CHAR_ESQ_FANTASMA:
 		lh t1,0(t0)			# carrega o x atual do personagem
 		addi t1,t1,-8			# decrementa 8 pixeis
 		sh t1,0(t0)			# salva
-		ret
+		
+		jr s8
+
+CHAR_DIR_FANTASMA:
+		#jal s9, COLISAO_FANTASMA				# pula para colisao e coloca em s8 o endereco de retorno
+		
+		la s1, CHAR_ESQ_FANTASMA
+		la t0,BITMAP_POS_AZUL			# carrega em t0 o endereco de BITMAP_POS
+		la t1,OLD_BITMAP_POS_AZUL		# carrega em t1 o endereco de OLD_BITMAP_POS
+		lw t2,0(t0)
+		sw t2,0(t1)			# salva a posicao atual do personagem em OLD_BITMAP_POS
+		
+		lh t1,0(t0)			# carrega o x atual do personagem
+		addi t1,t1,8			# aumenta 8 pixeis
+		sh t1,0(t0)			# salva
+		
+		jr s8
+		
+CHAR_BAIXO_FANTASMA:
+		#jal s9, COLISAO_FANTASMA				# pula para colisao e coloca em s8 o endereco de retorno
+		
+		la s1, CHAR_ESQ_FANTASMA
+		la t0,BITMAP_POS_AZUL			# carrega em t0 o endereco de BITMAP_POS
+		la t1,OLD_BITMAP_POS_AZUL		# carrega em t1 o endereco de OLD_BITMAP_POS
+		lw t2,0(t0)
+		sw t2,0(t1)			# salva a posicao atual do personagem em OLD_BITMAP_POS
+		
+		lh t1,2(t0)			# carrega o y atual do personagem
+		addi t1,t1,-8			# decrementa 8 pixeis
+		sh t1,0(t0)			# salva
+		
+		jr s8
+
+CHAR_CIMA_FANTASMA:
+		#jal s9, COLISAO_FANTASMA				# pula para colisao e coloca em s8 o endereco de retorno
+		
+		la s1, CHAR_ESQ_FANTASMA
+		la t0,BITMAP_POS_AZUL			# carrega em t0 o endereco de BITMAP_POS
+		la t1,OLD_BITMAP_POS_AZUL		# carrega em t1 o endereco de OLD_BITMAP_POS
+		lw t2,0(t0)
+		sw t2,0(t1)			# salva a posicao atual do personagem em OLD_BITMAP_POS
+		
+		lh t1,2(t0)			# carrega o y atual do personagem
+		addi t1,t1,8			# aumenta 8 pixeis
+		sh t1,0(t0)			# salva
+		
+		jr s8
+
+
+		
 
 #################################################
 #	a0 = endereço imagem			
@@ -477,4 +717,14 @@ CHAR_PRINT:
 .include "matrizes.s"
 .include "sprites/black.data"
 .include "sprites/mapas/maze.data"
-.include "sprites/pacman.data"
+.include "sprites/pacman/pacman_esq.data"
+.include "sprites/pacman/pacman_baixo.data"
+.include "sprites/pacman/pacman_cima.data"
+.include "sprites/pacman/pacman_dir.data"
+.include "sprites/pacman/pacman_esq_2.data"
+.include "sprites/pacman/pacman_baixo_2.data"
+.include "sprites/pacman/pacman_cima_2.data"
+.include "sprites/pacman/pacman_dir_2.data"
+.include "sprites/pacman/pacman_fechado.data"
+.include "sprites/dot_background.data"
+.include "SYSTEMv21.s"
