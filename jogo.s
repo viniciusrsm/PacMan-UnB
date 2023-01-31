@@ -190,7 +190,7 @@ GAME_LOOP:
 		li a7, 104 				# ecall do print int 
 		ecall
 		
-		la t1, PONTUACAO
+		la t1, PONTOS_COMIDOS
 		lh a0, (t1)			# display da pontuacao na tela
 		li a1, 7 			# posicao x
 		li a2, 45 			# posicao y
