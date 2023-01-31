@@ -3,6 +3,14 @@
 
 .text
 MAIN_MENU:
+		la t0, maze
+		la t1, MAPA_ATUAL
+		sw t0, (t1)
+		
+		la t0, MATRIZ_1
+		la t1, MATRIZ_ATUAL
+		sw t0, (t1)
+		
 		li t1,0xFF000000			# endereco inicial da Memoria VGA - Frame 0
 		li t2,0xFF012C00			# endereco final 
 		la s1,pacmanvs				# endereço dos dados da tela na memoria

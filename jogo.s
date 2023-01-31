@@ -1,14 +1,19 @@
 .data
-BITMAP_POS:			.half 148,177				# x, y
-OLD_BITMAP_POS:		.half 148,177				# x, y
+BITMAP_POS:		.half 0, 0				# x, y
+OLD_BITMAP_POS:		.half 0, 0				# x, y
 MATRIZ_POS: 		.word 0
+
+UPDATE_BITMAP_POS:	.half 148, 177
+MATRIZ_ATUAL:		.word 0
+MAPA_ATUAL:		.word 0
+
 SPRITE_ATUAL:		.word 0
 SPRITE_ATUAL_2: 	.word 0
 SPRITE_ATUAL_3:		.word 0
 
-PONTUACAO: 			.word 0
+PONTUACAO: 		.word 0
 PONTUACAO_MAXIMA: 	.word 0
-VIDAS:				.byte 3
+VIDAS:			.byte 3
 
 PONTOS_COMIDOS: 	.half 0
 
@@ -50,8 +55,11 @@ SETUP:
 
 		la s1, BITMAP_POS
 		la s2, OLD_BITMAP_POS
-		li t1, 148
-		li t2, 177
+		la s3, UPDATE_BITMAP_POS
+		
+		lh t1, (s3) # t1 = x
+		lh t2, 2 (s3) # t2 = y
+		
 		sh t1, (s1)
 		sh t2, 2 (s1)
 		sh t1, (s2)
@@ -77,7 +85,9 @@ SETUP:
 		sw t1, (t0)
 
 		# MATRIZ PACMAN
-		la s2, MATRIZ_1		# mudar em cada mapa
+		la t0, MATRIZ_ATUAL
+		lw s2, (t0)
+		#la s2, MATRIZ_1		# mudar em cada mapa
 		la t1, MATRIZ_POS
 		addi t2, s2, 657		# carrega posicao inicial do pacman em t0
 		sw t2, (t1)				# guarda t0 em MATRIZ_POS
@@ -103,7 +113,9 @@ SETUP:
 		sw t2, (t1)
 		
 		# LABIRINTO
-		la a0,maze				# carrega o endereco do sprite 'maze' em a0
+		la t0, MAPA_ATUAL
+		lw a0, (t0)
+		#la a0,maze				# carrega o endereco do sprite 'maze' em a0
 		li a1,0					# x = 0
 		li a2,0					# y = 0
 		li a3,0					# frame = 0
@@ -112,12 +124,23 @@ SETUP:
 		call PRINT				# imprime o sprite
 		# esse setup serve pra desenhar o "mapa" nos dois frames antes do "jogo" comecar
 
+
 GAME_LOOP:	
-		li t0, 224
 		la t1, PONTOS_COMIDOS		
 		lh t1, (t1)
-		beq t0, t1, SETUP			# se todas as frutas foram comidas (224 frutas) -> volta para setup e inicia proxima fase
 		
+		li t0, 224
+		la a2, maze_2
+		la a3, MATRIZ_2
+		li a4, 150
+		li a5, 178
+		beq t0, t1, TROCA_MAPA		# se todas as frutas foram comidas (224 frutas) -> volta para setup e inicia proxima fase
+		
+		li t0, 448
+		la a2, maze_3
+		la a3, MATRIZ_3
+		beq t0, t1, TROCA_MAPA
+						
 		call INPUT_TECLADO			# chama o procedimento de entrada do teclado
 		
 		xori s0,s0,1			# inverte o valor frame atual (somente o registrador)
@@ -182,8 +205,8 @@ GAME_LOOP:
 		li a7, 104 				# ecall do print int 
 		ecall
 		
-		la t1, PONTUACAO
-		lw a0, (t1)			# display da pontuacao na tela
+		la t1, PONTOS_COMIDOS
+		lh a0, (t1)			# display da pontuacao na tela
 		li a1, 7 			# posicao x
 		li a2, 45 			# posicao y
 		li a7, 101 			# ecall do print int 
@@ -206,6 +229,22 @@ GAME_LOOP:
 		ecall
 	
 		j GAME_LOOP			# continua o loop
+
+
+TROCA_MAPA:
+		la t0, MAPA_ATUAL
+		sw a2, (t0)			# store proximo mapa
+		
+		la t0, MATRIZ_ATUAL
+		lw t1, (t0)
+		
+		sw a3, (t0)
+		
+		la t0, UPDATE_BITMAP_POS
+		sh a4, (t0)
+		sh a5, 2 (t0)
+		
+		j SETUP
 
 INPUT_TECLADO:
 		li a7, 30				# syscall de tempo
@@ -255,6 +294,12 @@ INPUT_TECLADO:
 		la a3, CHAR_DIR
 		li a2, 1
 		beq t2,t0,STORE_ULTIMO_MOVIMENTO		# se tecla pressionada for 'd', chama CHAR_CIMA
+		
+		li t0, 'k'
+		beq t2, t0, PULAR_FASE_2
+		
+		li t0, 'l'
+		beq t2, t0, PULAR_FASE_3
 
 MOVIMENTACAO:
 		jal s8 TROCA_SPRITE_ATUAL	# come come
@@ -276,6 +321,36 @@ MOVIMENTACAO:
 		la t0, PROXIMO_MOVIMENTO	# t0 = endereco de PROXIMO_MOVIMENTO
 		lw s1, (t0)					# t1 = word em t0 (endereco do proximo movimento)
 		jr s1							# vai para o proximo movimento
+
+PULAR_FASE_2:
+		la s1, PONTOS_COMIDOS
+		lh s2, (s1)
+		
+		li t0, 224
+		
+		sh t0, (s1)
+		
+		la a2, maze_2
+		la a3, MATRIZ_2
+		li a4, 150
+		li a5, 178
+		
+		j TROCA_MAPA
+		
+PULAR_FASE_3:
+		la s1, PONTOS_COMIDOS
+		lh s2, (s1)
+		
+		li t0, 448 
+		
+		sh t0, (s1) 
+		
+		la a2, maze_3
+		la a3, MATRIZ_3
+		li a4, 150
+		li a5, 178
+		
+		j TROCA_MAPA
 
 TROCA_SPRITE_ATUAL:
 		la s1, SPRITE_ATUAL
@@ -717,6 +792,8 @@ CHAR_PRINT:
 .include "matrizes.s"
 .include "sprites/black.data"
 .include "sprites/mapas/maze.data"
+.include "sprites/mapas/maze_2.data"
+.include "sprites/mapas/maze_3.data"
 .include "sprites/pacman/pacman_esq.data"
 .include "sprites/pacman/pacman_baixo.data"
 .include "sprites/pacman/pacman_cima.data"
