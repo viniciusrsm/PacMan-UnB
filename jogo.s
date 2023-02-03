@@ -128,7 +128,6 @@ SETUP:
 		call PRINT				# imprime o sprite
 		# esse setup serve pra desenhar o "mapa" nos dois frames antes do "jogo" comecar
 
-
 GAME_LOOP:	
 		la t0, PONTOS_COMIDOS		
 		lh t0, (t0)
@@ -253,28 +252,49 @@ GAME_LOOP:
 		j GAME_LOOP			# continua o loop
 
 TROCA_MAPA:
-		la t0, MAPA_ATUAL_INT
-		lb s1, (t0)
+		la s1, MAPA_ATUAL_INT
+		lb s2, (s1)
 		
 		li t1, 1
-		beq t1, s1, TROCA_MAPA_2
+		beq t1, s2, TROCA_MAPA_2 # se o indicador de mapa for = 1 -> TROCA_MAPA_2
 		
 		li t1, 2
-		beq t1, s1, TROCA_MAPA_3
-
-		call VICTORY		
+		beq t1, s2, TROCA_MAPA_3 # se o indicador de mapa for = 2 -> TROCA_MAPA_3
+		
+		#ELSE (VITÓRIA)
+		
+		# TELA DE VITÓRIA
+		la a0, victory
+		li a1,0					# x = 0
+		li a2,0					# y = 0
+		li a3,0					# frame = 0
+		call PRINT				# imprime o sprite
+		li a3,1					# frame = 1
+		call PRINT				# imprime o sprite
+		
+		li t1,0xFF200000		# carrega o endereco de controle do KDMMIO
+		lw t0,0(t1)			# Le bit de Controle Teclado
+		andi t0,t0,0x0001		# mascara o bit menos significativo
+  		lw t2,4(t1)  			# le o valor da tecla tecla
+		
+		li t0,10
+		bne t2,t0,TROCA_MAPA	# se não for enter volta para loop
+		li a7, 10				# se for enter -> exit
+		ecall
+		
+		
 		
 TROCA_MAPA_2:
 		la a2, maze_2
 		la a3, MATRIZ_2
-		li a4, 150
-		li a5, 178
-		
+		li a4, 150			# carrega a posicao inicial x
+		li a5, 178			# carrega a posicao inicial y	
+				
 		la t0, MAPA_ATUAL
-		sw a2, (t0)			# store proximo mapa
+		sw a2, (t0)			# store maze_2
 		
 		la t0, MATRIZ_ATUAL
-		lw t1, (t0)
+		lw t1, (t0)			# store MATRIZ_2
 		
 		sw a3, (t0)
 		
@@ -285,42 +305,42 @@ TROCA_MAPA_2:
 		la t0, MAPA_ATUAL_INT
 		
 		li t1, 2
-		sb t1, (t0)
+		sb t1, (t0)			# indica que mapa atual é 2
 		
 		la t0, PONTOS_TOTAIS	
 		
 		li t1, 238
-		sh t1, (t0)
+		sh t1, (t0)			# armazena a quantidade total de pontos em maze_2
 		
 		j SETUP
 
 TROCA_MAPA_3:
 		la a2, maze_3
 		la a3, MATRIZ_3
-		li a4, 150
-		li a5, 178
+		li a4, 150			# carrega x inicial
+		li a5, 178			# carrega y inicial
 		
 		la t0, MAPA_ATUAL
-		sw a2, (t0)			# store proximo mapa
+		sw a2, (t0)			# store maze_3
 		
 		la t0, MATRIZ_ATUAL
-		lw t1, (t0)
+		lw t1, (t0)			# store MATRIZ_3
 		
 		sw a3, (t0)
 		
 		la t0, UPDATE_BITMAP_POS
-		sh a4, (t0)
-		sh a5, 2 (t0)
+		sh a4, (t0)			# armazena o x
+		sh a5, 2 (t0)		# armazena o y
 		
 		la t0, MAPA_ATUAL_INT
 		
-		li t1, 3
-		sb t1, (t0)
+		li t1, 3			
+		sb t1, (t0)			# indica que mapa atual é 3
 		
 		la t0, PONTOS_TOTAIS	
 		
 		li t1, 242
-		sh t1, (t0)
+		sh t1, (t0)			# armazena a quantidade total de pontos em maze_3
 		
 		j SETUP
 
@@ -375,6 +395,8 @@ INPUT_TECLADO:
 		
 		li t0, 'k'
 		beq t2, t0, TROCA_MAPA
+		
+		j FIM
 
 MOVIMENTACAO:
 		jal s8 TROCA_SPRITE_ATUAL	# come come
@@ -713,7 +735,23 @@ COLISAO_FANTASMA:
 		ret
 		
 MORTE:
-		call GAME_OVER
+		la a0, game_over
+		li a1,0					# x = 0
+		li a2,0					# y = 0
+		li a3,0					# frame = 0
+		call PRINT				# imprime o sprite
+		li a3,1					# frame = 1
+		call PRINT				# imprime o sprite
+		
+		li t1,0xFF200000		# carrega o endereco de controle do KDMMIO
+		lw t0,0(t1)			# Le bit de Controle Teclado
+		andi t0,t0,0x0001		# mascara o bit menos significativo
+  		lw t2,4(t1)  			# le o valor da tecla tecla
+		
+		li t0,10
+		bne t2,t0,MORTE	# se não for enter volta para loop
+		li a7, 10				# se for enter -> exit
+		ecall
 
 #################################################
 #	a0 = endereço imagem			
@@ -787,7 +825,10 @@ CHAR_PRINT:
 .include "sprites/amarelo_direita.data"
 .include "menu.s"
 .include "game_over.s"
-.include "victory.s"
+#.include "victory.s"
+.data
+.include "sprites/menu/game_over.data"
+.include "sprites/menu/victory.data"
 .include "matrizes.s"
 .include "sprites/black.data"
 .include "sprites/mapas/maze.data"
