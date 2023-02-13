@@ -1,0 +1,8 @@
+*Rodar no fpgrars*
+
+W - Cima
+A - Esquerda
+S - Baixo
+D - Direita
+K - Pular fase
+Enter - Interação menus
